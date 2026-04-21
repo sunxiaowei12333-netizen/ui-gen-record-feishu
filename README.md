@@ -1,0 +1,112 @@
+# ui-gen-record
+
+一个跨 AI Agent 的 Skill，用来把每次 UI 页面生成需求（Token 消耗、美元花费、修改次数、使用模型、预览链接、源码和导出 zip 附件）自动归档到**你自己的飞书多维表格**，并配套一张按月份分组的仪表盘。
+
+适合任何使用 AI Agent（Cursor、Claude Code、Codex、VS Code Copilot、Cline、Aider 等）做 UI/前端页面生成的人，对使用量、花费、模型分布做**月度可视化统计**。
+
+## 为什么要用它
+
+AI 生成页面的成本藏在每天的碎片对话里，没人愿意手工记账。这个 Skill 让 agent 代你记：
+
+- 每次对话结束说一句 **"整理到表格中"**，agent 自动填一行
+- 表格按月份归类，仪表盘实时显示"每月使用最多的模型 / Token 总消耗 / 美元总花费"
+- 源码 + 导出 zip 作为附件一起归档
+- 所有数据都在**你自己的飞书账号下**，Skill 不读取也不上传任何数据到第三方
+
+## 演示
+
+| 表格（按月分组） | 仪表盘（每月模型/花费分布） |
+|---|---|
+| _建好之后就是这个样子，默认 6 个字段 + 3 个辅助公式字段_ | _饼图 / 指标卡 / 堆叠柱状图共 6 张_ |
+
+## 安装
+
+### 依赖
+
+- [`lark-cli`](https://github.com/larksuite/lark-cli)（或你公司内部对应的飞书 CLI），已完成 `lark-cli auth login`
+- `jq`、`bash`、`curl`、`python3`（macOS / Linux 默认都有）
+
+### 安装到 Agent
+
+```bash
+git clone https://github.com/sunxiaowei12333-netizen/ui-gen-record.git
+cd ui-gen-record
+bash scripts/install.sh
+```
+
+`install.sh` 会自动检测：
+
+- `~/.cursor/skills/` → 建软链 `ui-gen-record`
+- `~/.claude/skills/` → 建软链 `ui-gen-record`
+
+对于没有原生 Skill 机制的 Agent（Codex / VS Code Copilot / Cline / Aider 等），在项目根目录 `AGENTS.md` 里加一行 `@include <本仓库绝对路径>/AGENTS.md` 即可。
+
+### 首次建表
+
+```bash
+bash scripts/bootstrap.sh
+```
+
+脚本会：
+
+1. 用 `lark-cli` 在你飞书账号下**新建一张空表**（表名默认 `UI页面生成记录`，可通过 `BASE_NAME=xxx bash scripts/bootstrap.sh` 自定义）
+2. 建好所有字段 + 3 个辅助公式字段（月份 / Token 数值 / 花费数值）
+3. 视图按 `月份` 降序分组
+4. 新建仪表盘 `UI生成实时统计` + 6 个 block（饼图、2 个指标卡、3 个柱状图）
+5. 把这张表的所有权转给你（脚本默认以 bot 身份建表，再 transfer 给当前 CLI 登录用户）
+6. 所有 id / token 写入 `.config.json`（**已被 gitignore，不会泄漏**）
+
+结束时 echo 两条**只能手动**的操作提醒（Bitable Open API 未暴露）：
+
+- 右键 `月份` 列头 → 隐藏字段
+- 两张涉及模型维度的图表，手动调配色到模型色系
+
+### 使用
+
+对你的 AI Agent 说：
+
+> 把这次改动整理到表格中
+
+Agent 会读取 SKILL.md 里的约定，自动提取本次对话的：
+
+- 需求名称、日期、预览链接、设计稿链接
+- 使用的模型（从 `/model` 或上下文识别）
+- 修改次数（数本次对话里的小需求个数）
+- Token 消耗 / 美元花费（按模型价目表估算）
+- 源码 `.tsx` + 导出 `.zip` 作为附件
+
+然后调 `scripts/append.sh` 往表里追加一行。
+
+## 表结构
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| 需求名称 | text | 页面名 |
+| 需求日期 | datetime | 创建时间 |
+| 预览链接 | text (url) | `http://localhost:5173/xxx` |
+| 设计稿链接 | text (url) | Figma / Motiff / Pencil |
+| 使用模型 | select | Claude/GPT/Gemini 各系列，带颜色标签 |
+| 文件 | attachment | 源码 + 导出 zip |
+| 修改次数 | text | 对话里的小改点数 |
+| Token 消耗 | text | 带千分位，如 `1,000,000` |
+| 美元花费 | text | 带 `$`，如 `$25.00` |
+| Token 数值 | formula(number) | 自动从 `Token 消耗` 剥逗号转数字，用于仪表盘 SUM |
+| 花费数值 | formula(number) | 自动从 `美元花费` 剥 `$` 转数字，用于仪表盘 SUM |
+| 月份 | formula(text) | `TEXT([需求日期], "YYYY-MM")`，用于分组 |
+
+## 仪表盘
+
+- **使用最多的模型**（饼图）
+- **Token 总消耗** / **美元总花费**（指标卡）
+- **每月使用最多的模型**（堆叠柱状图）
+- **每月 Token 总消耗** / **每月美元总花费**（柱状图）
+
+## 隐私
+
+- Skill 本身**不会读取也不会上传**你的对话、文件或任何数据到第三方。
+- 所有操作通过 `lark-cli` 在**你自己的飞书账号**下进行，表的所有权在 `bootstrap.sh` 末尾就转给了你。
+- 仓库的 `.gitignore` 已经忽略 `.config.json`（含你的 base_token 和 open_id），只要不手动加白它，不会被提交。
+
+## License
+
+MIT

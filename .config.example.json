@@ -1,0 +1,25 @@
+{
+  "__comment__": "本文件仅作为格式示例。首次运行 scripts/bootstrap.sh 会在同目录生成真实的 .config.json（已被 .gitignore 忽略）。",
+  "base_token": "<bitable_base_token>",
+  "base_url": "https://<host>/base/<base_token>",
+  "table_id": "<table_id>",
+  "table_name": "UI页面生成记录",
+  "view_id": "<view_id>",
+  "dashboard_id": "<dashboard_id>",
+  "owner_open_id": "<your_open_id>",
+  "owner_name": "<your_name>",
+  "field_ids": {
+    "需求名称": "<fld_id>",
+    "需求日期": "<fld_id>",
+    "预览链接": "<fld_id>",
+    "设计稿链接": "<fld_id>",
+    "使用模型": "<fld_id>",
+    "文件": "<fld_id>",
+    "修改次数": "<fld_id>",
+    "Token消耗": "<fld_id>",
+    "美元花费": "<fld_id>",
+    "Token数值": "<fld_id>",
+    "花费数值": "<fld_id>",
+    "月份": "<fld_id>"
+  }
+}
