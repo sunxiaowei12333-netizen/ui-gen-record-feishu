@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # 首次建表脚本：
 #   1. 创建飞书多维表格（内含表 UI页面生成记录）
-#   2. 配置业务字段 + 隐藏的 _token / _usd (number) + 公式字段
-#      Token消耗(text)、美元花费(text)、月份(text) —— 这三列 formula
-#      返回文本类型，飞书客户端会自动左对齐
+#   2. 配置业务字段：Token消耗 (number, 千分位) / 美元花费 (number, USD currency)
+#      + 月份 (formula text, 基于需求日期) 用于分组
 #   3. 设置视图按「月份」分组
-#   4. 创建仪表盘「UI生成实时统计」并塞 6 个 block，统计基于 _token / _usd
+#   4. 创建仪表盘「UI生成实时统计」并塞 6 个 block
 #   5. 把当前 CLI 登录用户加为 full_access，并把 owner 转给该用户
 #   6. 持久化配置到 .config.json
 #
@@ -119,17 +118,15 @@ F_DESIGN_URL="$(create_field  '{"type":"text","name":"设计稿链接","style":{
 F_MODEL="$(create_field '{"type":"select","name":"使用模型","multiple":false,"options":[{"name":"Claude Opus 4.7","hue":"Purple","lightness":"Light"},{"name":"Claude Sonnet 4.6","hue":"Blue","lightness":"Light"},{"name":"GPT-5.4","hue":"Green","lightness":"Light"},{"name":"Gemini 3 Pro","hue":"Orange","lightness":"Light"},{"name":"Gemini 3.1 Pro","hue":"Red","lightness":"Light"}]}')"
 F_MOD_COUNT="$(create_field    '{"type":"text","name":"修改次数","style":{"type":"plain"}}')"
 
-# _token / _usd 是 number 类型的"源"字段：append.sh 往这两列写原始数字，
-# 仪表盘 SUM 基于它们。建议在表里手动隐藏这两列，用户平时只看下面的
-# Token消耗 / 美元花费 两列 formula（text 类型，左对齐）。
-F_TOKEN_NUM="$(create_field '{"type":"number","name":"_token","style":{"type":"plain","precision":0,"thousands_separator":false,"percentage":false}}')"
-F_USD_NUM="$(create_field   '{"type":"number","name":"_usd","style":{"type":"plain","precision":2,"thousands_separator":false,"percentage":false}}')"
+# Token消耗 / 美元花费 是 number 字段，飞书用内置 style 渲染展示样式：
+#   - Token消耗 → plain + 千分位（"1,000,000"）
+#   - 美元花费 → currency + USD（"$25.00"）
+# number 字段在表里默认右对齐，但无须任何手动隐藏步骤。
+F_TOKEN_USAGE="$(create_field '{"type":"number","name":"Token消耗","style":{"type":"plain","precision":0,"thousands_separator":true,"percentage":false}}')"
+F_USD_COST="$(create_field    '{"type":"number","name":"美元花费","style":{"type":"currency","precision":2,"currency_code":"USD"}}')"
 
-# 公式字段（依赖前面的 number 字段，必须后建）
-# 这三列 formula 返回 text，在飞书里默认左对齐
-F_TOKEN_USAGE="$(create_formula '{"type":"formula","name":"Token消耗","expression":"TEXT([_token], \"#,##0\")"}')"
-F_USD_COST="$(create_formula    '{"type":"formula","name":"美元花费","expression":"\"$\" & TEXT([_usd], \"0.00\")"}')"
-F_MONTH="$(create_formula       '{"type":"formula","name":"月份","expression":"TEXT([需求日期], \"YYYY-MM\")"}')"
+# 月份 formula 用于视图分组和仪表盘分桶
+F_MONTH="$(create_formula '{"type":"formula","name":"月份","expression":"TEXT([需求日期], \"YYYY-MM\")"}')"
 
 # ===== 步骤 5：视图按「月份」降序分组 =====
 sleep 1
@@ -156,19 +153,19 @@ create_block "使用最多的模型" pie \
   "{\"table_name\":\"$TABLE_NAME\",\"count_all\":true,\"group_by\":[{\"field_name\":\"使用模型\",\"mode\":\"integrated\",\"sort\":{\"type\":\"value\",\"order\":\"desc\"}}]}"
 
 create_block "Token 总消耗" statistics \
-  "{\"table_name\":\"$TABLE_NAME\",\"series\":[{\"field_name\":\"_token\",\"rollup\":\"SUM\"}]}"
+  "{\"table_name\":\"$TABLE_NAME\",\"series\":[{\"field_name\":\"Token消耗\",\"rollup\":\"SUM\"}]}"
 
 create_block "美元总花费" statistics \
-  "{\"table_name\":\"$TABLE_NAME\",\"series\":[{\"field_name\":\"_usd\",\"rollup\":\"SUM\"}]}"
+  "{\"table_name\":\"$TABLE_NAME\",\"series\":[{\"field_name\":\"美元花费\",\"rollup\":\"SUM\"}]}"
 
 create_block "每月使用最多的模型" column \
   "{\"table_name\":\"$TABLE_NAME\",\"count_all\":true,\"group_by\":[{\"field_name\":\"月份\",\"mode\":\"integrated\",\"sort\":{\"type\":\"group\",\"order\":\"asc\"}},{\"field_name\":\"使用模型\",\"mode\":\"integrated\",\"sort\":{\"type\":\"value\",\"order\":\"desc\"}}]}"
 
 create_block "每月 Token 总消耗" column \
-  "{\"table_name\":\"$TABLE_NAME\",\"series\":[{\"field_name\":\"_token\",\"rollup\":\"SUM\"}],\"group_by\":[{\"field_name\":\"月份\",\"mode\":\"integrated\",\"sort\":{\"type\":\"group\",\"order\":\"asc\"}}]}"
+  "{\"table_name\":\"$TABLE_NAME\",\"series\":[{\"field_name\":\"Token消耗\",\"rollup\":\"SUM\"}],\"group_by\":[{\"field_name\":\"月份\",\"mode\":\"integrated\",\"sort\":{\"type\":\"group\",\"order\":\"asc\"}}]}"
 
 create_block "每月美元总花费" column \
-  "{\"table_name\":\"$TABLE_NAME\",\"series\":[{\"field_name\":\"_usd\",\"rollup\":\"SUM\"}],\"group_by\":[{\"field_name\":\"月份\",\"mode\":\"integrated\",\"sort\":{\"type\":\"group\",\"order\":\"asc\"}}]}"
+  "{\"table_name\":\"$TABLE_NAME\",\"series\":[{\"field_name\":\"美元花费\",\"rollup\":\"SUM\"}],\"group_by\":[{\"field_name\":\"月份\",\"mode\":\"integrated\",\"sort\":{\"type\":\"group\",\"order\":\"asc\"}}]}"
 
 # ===== 步骤 7：加协作者 + 转 owner =====
 sleep 1
@@ -200,8 +197,6 @@ jq -n \
   --arg model        "$F_MODEL" \
   --arg file         "$F_FILE" \
   --arg mod_count    "$F_MOD_COUNT" \
-  --arg token_num    "$F_TOKEN_NUM" \
-  --arg usd_num      "$F_USD_NUM" \
   --arg token_usage  "$F_TOKEN_USAGE" \
   --arg usd_cost     "$F_USD_COST" \
   --arg month        "$F_MONTH" \
@@ -215,7 +210,6 @@ jq -n \
       "预览链接":$preview,"设计稿链接":$design,
       "使用模型":$model,"文件":$file,
       "修改次数":$mod_count,
-      "_token":$token_num,"_usd":$usd_num,
       "Token消耗":$token_usage,"美元花费":$usd_cost,
       "月份":$month
     }
@@ -228,8 +222,8 @@ echo "[bootstrap] 表格：$BASE_URL"
 echo "[bootstrap] 仪表盘：同一 Base 左侧导航里的「$DASHBOARD_NAME」"
 echo
 echo "[bootstrap] ⚠️  一次性手动微调（API 限制）："
-echo "[bootstrap]   1) 右键「月份」「_token」「_usd」三列列头 → 隐藏字段"
-echo "[bootstrap]      （分组和 SUM 继续生效，只是不占主视图列位）"
+echo "[bootstrap]   1) 右键「月份」列头 → 隐藏字段"
+echo "[bootstrap]      （分组继续生效，只是不占主视图列位）"
 echo "[bootstrap]   2) 进入「使用最多的模型」和「每月使用最多的模型」两个图表的"
 echo "[bootstrap]      编辑 → 样式 → 图表颜色 → 按分类设置，把系列颜色调成："
 echo "[bootstrap]        Claude Opus 4.7  → 紫 #B66CFF"

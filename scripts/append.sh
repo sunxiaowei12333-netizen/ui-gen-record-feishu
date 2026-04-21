@@ -53,9 +53,9 @@ BASE_TOKEN="$(jq -r '.base_token' "$CONFIG")"
 TABLE_ID="$(jq   -r '.table_id'   "$CONFIG")"
 BASE_URL="$(jq   -r '.base_url'   "$CONFIG")"
 
-# 将展示字符串转为 number，失败时置空字符串（jq 里会被跳过）
-# `Token消耗` / `美元花费` 在表里是 text 格式的公式字段（左对齐展示），
-# 真正参与仪表盘 SUM 的是两个隐藏的 number 字段 `_token` / `_usd`。
+# `Token消耗` / `美元花费` 是 number 字段（飞书用 style 渲染千分位 / 美元符号）。
+# 调用方仍然可以传 "1,000,000" / "$25.00" 这种展示字符串，脚本内部剥掉
+# 千分位逗号和美元符号后写入 number。
 TOKEN_NUM=""
 if [[ -n "$TOKEN_USAGE" ]]; then
   cleaned="${TOKEN_USAGE//,/}"
@@ -90,8 +90,8 @@ PAYLOAD="$(jq -n \
   + (if $design_url  != "" then {"设计稿链接":$design_url} else {} end)
   + (if $model       != "" then {"使用模型":$model} else {} end)
   + (if $mod_count   != "" then {"修改次数":$mod_count} else {} end)
-  + (if $token_num   != "" then {"_token":($token_num|tonumber)} else {} end)
-  + (if $usd_num     != "" then {"_usd":($usd_num|tonumber)} else {} end)
+  + (if $token_num   != "" then {"Token消耗":($token_num|tonumber)} else {} end)
+  + (if $usd_num     != "" then {"美元花费":($usd_num|tonumber)} else {} end)
   ')"
 
 RESP="$(lark-cli base +record-upsert --as bot --base-token "$BASE_TOKEN" --table-id "$TABLE_ID" --json "$PAYLOAD")"

@@ -60,7 +60,7 @@ bash scripts/bootstrap.sh
 脚本会：
 
 1. 用 `lark-cli` 在你飞书账号下**新建一张空表**（表名默认 `UI页面生成记录`，可通过 `BASE_NAME=xxx bash scripts/bootstrap.sh` 自定义）
-2. 建好所有字段 + 3 个辅助公式字段（月份 / Token 数值 / 花费数值）
+2. 建好所有业务字段 + 1 个辅助公式字段 `月份`（用于视图分组）
 3. 视图按 `月份` 降序分组
 4. 新建仪表盘 `UI生成实时统计` + 6 个 block（饼图、2 个指标卡、3 个柱状图）
 5. 把这张表的所有权转给你（脚本默认以 bot 身份建表，再 transfer 给当前 CLI 登录用户）
@@ -98,11 +98,9 @@ Agent 会读取 SKILL.md 里的约定，自动提取本次对话的：
 | 使用模型 | select | Claude/GPT/Gemini 各系列，带颜色标签 |
 | 文件 | attachment | 源码 + 导出 zip |
 | 修改次数 | text | 对话里的小改点数 |
-| _token | number（隐藏） | `append.sh` 写入的原始 Token 数字，供仪表盘 SUM |
-| _usd | number（隐藏） | `append.sh` 写入的原始美元金额，供仪表盘 SUM |
-| Token 消耗 | formula(text) | `TEXT([_token], "#,##0")` → 展示 `1,000,000`，左对齐 |
-| 美元花费 | formula(text) | `"$" & TEXT([_usd], "0.00")` → 展示 `$25.00`，左对齐 |
-| 月份 | formula(text) | `TEXT([需求日期], "YYYY-MM")`，用于分组 |
+| Token消耗 | number (plain, 千分位) | 直接写数字，飞书渲染成 `1,000,000`；仪表盘 SUM 直接跑在这列 |
+| 美元花费 | number (currency, USD) | 直接写数字，飞书渲染成 `$25.00`；仪表盘 SUM 直接跑在这列 |
+| 月份 | formula(text) | `TEXT([需求日期], "YYYY-MM")`，用于视图分组 |
 
 ## 仪表盘
 
