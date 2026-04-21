@@ -98,10 +98,10 @@ Agent 会读取 SKILL.md 里的约定，自动提取本次对话的：
 | 使用模型 | select | Claude/GPT/Gemini 各系列，带颜色标签 |
 | 文件 | attachment | 源码 + 导出 zip |
 | 修改次数 | text | 对话里的小改点数 |
-| Token 消耗 | text | 带千分位，如 `1,000,000` |
-| 美元花费 | text | 带 `$`，如 `$25.00` |
-| Token 数值 | formula(number) | 自动从 `Token 消耗` 剥逗号转数字，用于仪表盘 SUM |
-| 花费数值 | formula(number) | 自动从 `美元花费` 剥 `$` 转数字，用于仪表盘 SUM |
+| _token | number（隐藏） | `append.sh` 写入的原始 Token 数字，供仪表盘 SUM |
+| _usd | number（隐藏） | `append.sh` 写入的原始美元金额，供仪表盘 SUM |
+| Token 消耗 | formula(text) | `TEXT([_token], "#,##0")` → 展示 `1,000,000`，左对齐 |
+| 美元花费 | formula(text) | `"$" & TEXT([_usd], "0.00")` → 展示 `$25.00`，左对齐 |
 | 月份 | formula(text) | `TEXT([需求日期], "YYYY-MM")`，用于分组 |
 
 ## 仪表盘

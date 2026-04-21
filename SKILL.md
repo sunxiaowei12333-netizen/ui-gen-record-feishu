@@ -51,15 +51,17 @@ bash ~/.cursor/skills/ui-gen-record/scripts/bootstrap.sh
 | 使用模型 | select（带颜色标签） | 选项：`Claude Opus 4.7`(紫) / `Claude Sonnet 4.6`(蓝) / `GPT-5.4`(绿) / `Gemini 3 Pro`(橙) / `Gemini 3.1 Pro`(红)，可扩展 |
 | 文件 | attachment | `.tsx` 源码 + 导出 `.zip`（可多个） |
 | 修改次数 | text | 用户提出的所有小改点（含重复），左对齐 |
-| Token消耗 | text | 估算，带千分位，如 `1,000,000` |
-| 美元花费 | text | 估算，带 `$`，如 `$25.00` |
-| Token数值 | formula(number) | `VALUE(SUBSTITUTE([Token消耗], ",", ""))`，仪表盘 SUM 聚合用 |
-| 花费数值 | formula(number) | `VALUE(SUBSTITUTE([美元花费], "$", ""))`，仪表盘 SUM 聚合用 |
+| _token | number（**隐藏**） | 原始 Token 数字，`append.sh` 写入；仪表盘 SUM 用 |
+| _usd | number（**隐藏**） | 原始美元金额，`append.sh` 写入；仪表盘 SUM 用 |
+| Token消耗 | formula(text) | `TEXT([_token], "#,##0")`，展示"1,000,000"，左对齐 |
+| 美元花费 | formula(text) | `"$" & TEXT([_usd], "0.00")`，展示"$25.00"，左对齐 |
 | 月份 | formula(text) | `TEXT([需求日期], "YYYY-MM")`，视图分组用。Bitable API 对 datetime 分组默认按天，必须用这个文本字段才能按月归类 |
 
-> 数字型字段故意用 text 存储是为了显示左对齐；`Token数值/花费数值` 作为辅助字段用于仪表盘聚合。
+> **`Token消耗` / `美元花费` 是返回文本的 formula**——飞书对 formula 按返回值类型决定对齐，返回 text 时自然左对齐，同时保留千分位/美元符号。真正参与仪表盘 SUM 的是隐藏的 `_token` / `_usd`（number）。
+>
+> `append.sh` 的外部参数保持兼容：仍然传 `--token-usage "1,000,000"` 和 `--usd-cost "$25.00"`，脚本内部会自动剥逗号/美元符号后写入 `_token` / `_usd`。
 
-默认视图按 `月份` 降序分组（`2026-05` / `2026-04` 各自一组）。`月份` 列建议在 Bitable UI 里右键列头 → **隐藏字段**，分组继续生效（Open API 不支持通过接口隐藏列）。
+默认视图按 `月份` 降序分组（`2026-05` / `2026-04` 各自一组）。`月份` / `_token` / `_usd` 三列建议在 Bitable UI 里右键列头 → **隐藏字段**，分组和 SUM 继续生效（Open API 不支持通过接口隐藏列）。
 
 ## 仪表盘
 
@@ -68,13 +70,13 @@ bootstrap 会创建一个叫 `UI生成实时统计` 的仪表盘，包含 6 个 
 **整体统计**
 
 - **使用最多的模型**（饼图）：按 `使用模型` 字段计数，数量降序
-- **Token 总消耗** / **美元总花费**（指标卡）：`SUM(Token数值)` / `SUM(花费数值)`
+- **Token 总消耗** / **美元总花费**（指标卡）：`SUM(_token)` / `SUM(_usd)`
 
 **每月统计**
 
 - **每月使用最多的模型**（堆叠柱状图）：x=`月份` 颜色=`使用模型` y=`count_all`
-- **每月 Token 总消耗**（柱状图）：x=`月份` y=`SUM(Token数值)`
-- **每月美元总花费**（柱状图）：x=`月份` y=`SUM(花费数值)`
+- **每月 Token 总消耗**（柱状图）：x=`月份` y=`SUM(_token)`
+- **每月美元总花费**（柱状图）：x=`月份` y=`SUM(_usd)`
 
 每次 `append.sh` 加记录后刷新仪表盘就能看到新数据。
 
