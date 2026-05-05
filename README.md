@@ -27,8 +27,6 @@ AI生成的页面藏在每天的碎片对话里，没有人愿意手动记录。
   <img src="./docs/screenshots/dashboard.png" alt="仪表盘：每月模型 / Token / 美元花费" width="48%" />
 </p>
 
-> 截图位于 [`docs/screenshots/`](./docs/screenshots)。如果你想替换成自己的（请先脱敏），参考 [docs/screenshots/README.md](./docs/screenshots/README.md)。
-
 ## 安装
 
 ### 依赖
